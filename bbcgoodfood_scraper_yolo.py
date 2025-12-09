@@ -34,18 +34,39 @@ def get_first_recipe_url(query: str, session: Optional[requests.Session] = None)
     Returns the absolute URL or None if no recipe link was found.
     """
     s = session or requests.Session()
-    resp = s.get(f"{BASE}/search/recipes", params={"q": query}, headers=HEADERS, timeout=15)
+    # Use the public search endpoint which returns results like `/search?q=mushroom+risotto`
+    resp = s.get(f"{BASE}/search", params={"q": query}, headers=HEADERS, timeout=15)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
-
-    # Prefer explicit recipe links starting with /recipes/
-    for a in soup.find_all("a", href=True):
-        href = a["href"].split("#")[0].split("?")[0]
-        if href.startswith("/recipes/"):
-            # Skip collection/listing anchors that aren't individual recipes
-            # Heuristic: recipe pages often have two or more path components
-            # like /recipes/<slug>/<id>-<name> or /recipes/<name>
+    # First, prefer links that are annotated as result links
+    def _normalize_and_validate(href: str) -> Optional[str]:
+        href = href.split("#")[0].split("?")[0]
+        if "/recipes/" not in href:
+            return None
+        # skip collection or non-recipe paths
+        tail = href.split("/recipes/", 1)[1].lstrip('/')
+        if not tail:
+            return None
+        first_seg = tail.split('/', 1)[0]
+        if first_seg in ("collection", "tag", "category"):
+            return None
+        if href.startswith("http://") or href.startswith("https://"):
+            return href
+        if href.startswith("/"):
             return BASE + href
+        return BASE + "/" + href
+
+    for a in soup.find_all("a", href=True):
+        if a.get("data-component") == "link":
+            valid = _normalize_and_validate(a["href"])
+            if valid:
+                return valid
+
+    # Fallback: any anchor whose href contains /recipes/
+    for a in soup.find_all("a", href=True):
+        valid = _normalize_and_validate(a["href"])
+        if valid:
+            return valid
 
     return None
 
@@ -128,28 +149,18 @@ def scrape_first_ingredients(query: str) -> Tuple[str, List[str]]:
     url = get_first_recipe_url(query, session=session)
     if not url:
         raise RuntimeError(f"No recipe found for query: {query!r}")
-
-    resp = session.get(url, headers=HEADERS, timeout=15)
-    resp.raise_for_status()
-    ingredients = extract_ingredients(resp.text)
+    # Use the class-specific extractor for more precise results
+    ingredients = get_ingredients_by_class(url, session=session)
     return url, ingredients
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Scrape ingredients from BBC Good Food (first search result)")
-    parser.add_argument("query", nargs="*", help="Search term (wrap in quotes if multi-word)")
-    parser.add_argument("--url", help="Direct recipe URL to fetch (skips search)")
+    parser.add_argument("query", nargs="+", help="Search term (wrap in quotes if multi-word)")
     args = parser.parse_args(argv)
-    q = " ".join(args.query) if args.query else ""
+    q = " ".join(args.query)
     try:
-        if args.url:
-            url = args.url
-            ingredients = get_ingredients_by_class(url)
-        else:
-            if not q:
-                print("Error: provide a search query or --url", file=sys.stderr)
-                return 2
-            url, ingredients = scrape_first_ingredients(q)
+        url, ingredients = scrape_first_ingredients(q)
     except Exception as exc:
         print("Error:", exc, file=sys.stderr)
         return 2
