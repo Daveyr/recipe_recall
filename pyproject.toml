@@ -1,0 +1,13 @@
+[project]
+name = "recipe-recall"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "bs4>=0.0.2",
+    "mcp[cli]>=1.23.3",
+    "pandas>=2.3.3",
+    "requests>=2.32.5",
+]
