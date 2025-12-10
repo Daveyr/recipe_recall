@@ -12,9 +12,17 @@ import time
 import asyncio
 import sys
 from typing import Optional
+import logging
 
 # Create an MCP server
-mcp = FastMCP("Recipe Recall", json_response=True)
+mcp = FastMCP("Recipe Recall", json_response=False)
+
+# Configure module logger
+logger = logging.getLogger("recipe_recall.fastmcp")
+if not logger.handlers:
+    # Basic configuration for standalone runs; MCP may configure logging itself.
+    logging.basicConfig(level=logging.INFO)
+
 
 # AI Sticky notes
 RECIPE_FILE = "recipes.txt"
@@ -49,25 +57,53 @@ def add(a: int, b: int) -> int:
     return a + b
 
 @mcp.tool()
-async def search_recipes(keyword: str) -> str:
-    """Find the ingredients for a given meal search term
-        Args:
-            keyword (str): The name of a single recipe to search.
-        Returns:
-            str: The ingredients from the recipe.
+async def search_recipes(keyword: str) -> dict:
+    """Find the ingredients for a given meal search term.
+
+    This tool runs the local `bbcgoodfood_scraper_yolo.py` script using the same
+    Python interpreter as the current process. It runs the subprocess in a
+    thread (via `asyncio.to_thread`) to avoid blocking the MCP event loop.
+    Detailed logging is emitted to help diagnose timeouts and failures.
     """
-    # Use os to run bbcgoodfood_scraper_yolo.py with the keyword as argument
     script_name = "bbcgoodfood_scraper_yolo.py"
     script_path = os.path.join(os.path.dirname(__file__), script_name)
-    result = await subprocess.run(
-        ["python", script_name, keyword],
-        capture_output=True,
-        text=True,
-        timeout=6000
-    )
+    if not os.path.exists(script_path):
+        # fallback to CWD (useful when server cwd differs)
+        script_path = script_name
+
+    cmd = [sys.executable, script_path, keyword]
+    logger.info("search_recipes starting; script=%s keyword=%s", script_path, keyword)
+    logger.debug("command: %s", cmd)
+
+    start = time.time()
+    try:
+        # Run subprocess.run inside a thread to keep the async loop responsive.
+        result = await asyncio.to_thread(
+            subprocess.run,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=6000,
+        )
+    except subprocess.TimeoutExpired as e:
+        elapsed = time.time() - start
+        logger.warning("search_recipes timed out after %.1fs: %s", elapsed, e)
+        return {"error": f"scraper timed out after {6000}s"}
+    except Exception as e:  # unexpected execution error
+        elapsed = time.time() - start
+        logger.exception("search_recipes failed after %.1fs: %s", elapsed, e)
+        return {"error": f"failed to run scraper: {e!s}"}
+
+    elapsed = time.time() - start
+    logger.info("search_recipes finished in %.2fs with returncode=%s", elapsed, result.returncode)
+    # log sizes rather than full output at INFO to avoid noisy logs; DEBUG will include full output
+    logger.info("stdout length=%d stderr length=%d", len(result.stdout or ""), len(result.stderr or ""))
+    logger.debug("scraper stdout:\n%s", result.stdout)
+    logger.debug("scraper stderr:\n%s", result.stderr)
+
     if result.returncode != 0:
-        return f"Error running scraper: {result.stderr}"
-    return {"output": result.stdout}
+        return {"error": result.stderr or f"scraper exited {result.returncode}"}
+    return {"output": result.stdout or ""}
 
 # @mcp.tool()
 # async def search_recipes(keyword: str, timeout: int = 10) -> str:
