@@ -9,6 +9,8 @@ from mcp.server.fastmcp import FastMCP
 import os
 import subprocess
 import time
+import asyncio
+import sys
 from typing import Optional
 
 # Create an MCP server
@@ -47,58 +49,73 @@ def add(a: int, b: int) -> int:
     return a + b
 
 @mcp.tool()
-def search_recipes(keyword: str) -> str:
+async def search_recipes(keyword: str) -> str:
     """Find the ingredients for a given meal search term
-    Args:
-        keyword (str): The name of a single recipe to search.
-    Returns:
-        str: The ingredients from the recipe.
+        Args:
+            keyword (str): The name of a single recipe to search.
+        Returns:
+            str: The ingredients from the recipe.
     """
-    # Attempt to run the local scraper script and return its stdout.
-    # Use subprocess.run with a timeout, retries and clear error handling so
-    # the MCP tool doesn't fail silently or return an integer exit code.
+    # Use os to run bbcgoodfood_scraper_yolo.py with the keyword as argument
     script_name = "bbcgoodfood_scraper_yolo.py"
     script_path = os.path.join(os.path.dirname(__file__), script_name)
-    if not os.path.exists(script_path):
-        # fallback to script in CWD
-        script_path = script_name
+    result = await subprocess.run(
+        ["python", script_name, keyword],
+        capture_output=True,
+        text=True,
+        timeout=6000
+    )
+    if result.returncode != 0:
+        return f"Error running scraper: {result.stderr}"
+    return {"output": result.stdout}
 
-    # Increase the number of retries and timeout to accommodate slower network
-    # and avoid MCP agent timeouts. Adjust these if your environment needs more.
-    max_retries = 4
-    timeout_seconds = 60
-    backoff = 2.0
+# @mcp.tool()
+# async def search_recipes(keyword: str, timeout: int = 10) -> str:
+#     """Find the ingredients for a given meal search term
+#     Args:
+#         keyword (str): The name of a single recipe to search.
+#     Returns:
+#         str: The ingredients from the recipe.
+#     """
+#     # Attempt to run the local scraper script and return its stdout.
+#     # Use subprocess.run with a timeout, retries and clear error handling so
+#     # the MCP tool doesn't fail silently or return an integer exit code.
+#     script_name = "bbcgoodfood_scraper_yolo.py"
+#     script_path = os.path.join(os.path.dirname(__file__), script_name)
+#     if not os.path.exists(script_path):
+#         script_path = script_name
 
-    for attempt in range(1, max_retries + 2):
-        try:
-            proc = subprocess.run(
-                ["python", script_path, keyword],
-                capture_output=True,
-                text=True,
-                timeout=timeout_seconds,
-                check=True,
-            )
-            output = proc.stdout.strip()
-            # Optionally save to the recipes file for recall
-            ensure_file()
-            with open(RECIPE_FILE, "a", encoding="utf-8") as f:
-                f.write(output + "\n")
-            return output or "(no output)"
+#     max_retries = 4
+#     timeout_seconds = 60
+#     backoff = 2.0
 
-        except subprocess.CalledProcessError as e:
-            stderr = (e.stderr or "").strip()
-            stdout = (e.stdout or "").strip()
-            msg = f"Script failed (exit {e.returncode}). stderr: {stderr!s} stdout: {stdout!s}"
-            # don't retry for script errors
-            return msg
-        except subprocess.TimeoutExpired:
-            if attempt > max_retries:
-                return f"Error: scraper timed out after {timeout_seconds}s (attempt {attempt})"
-            time.sleep(backoff)
-            backoff *= 2
-            continue
-        except Exception as e:  # pragma: no cover - unexpected environment errors
-            return f"Error running scraper: {e!s}"
+#     for attempt in range(1, max_retries + 1):
+#         try:
+#             # use the same Python executable and non-blocking subprocess
+#             proc = await asyncio.create_subprocess_exec(
+#                 sys.executable, script_path, keyword,
+#                 stdout=asyncio.subprocess.PIPE,
+#                 stderr=asyncio.subprocess.PIPE
+#             )
+#             try:
+#                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+#             except asyncio.TimeoutError:
+#                 proc.kill()
+#                 await proc.wait()
+#                 raise asyncio.TimeoutError()
+#             output = (stdout.decode("utf-8") or "").strip()
+#             ensure_file()
+#             # small sync write offloaded to a thread to avoid blocking
+#             await asyncio.to_thread(lambda: open(RECIPE_FILE, "a", encoding="utf-8").write(output + "\n"))
+#             return output or "(no output)"
+#         except asyncio.TimeoutError:
+#             if attempt >= max_retries:
+#                 return f"Error: scraper timed out after {timeout_seconds}s (attempt {attempt})"
+#             await asyncio.sleep(backoff)
+#             backoff *= 2
+#             continue
+#         except Exception as e:
+#             return f"Error running scraper: {e!s}"
 
 # @mcp.tool()
 # def recall_recipes(keyword: str) -> str:
