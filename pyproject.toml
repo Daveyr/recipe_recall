@@ -3,11 +3,18 @@ name = "recipe-recall"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
+    "argparse>=1.4.0",
+    "asyncio",
     "beautifulsoup4>=4.14.3",
     "bs4>=0.0.2",
+    "logging>=0.4.9.6",
     "mcp[cli]>=1.23.3",
     "pandas>=2.3.3",
+    "re",
     "requests>=2.32.5",
+    "subprocess",
+    "time",
+    "typing>=3.10.0.0",
 ]
