@@ -28,5 +28,8 @@ mcpServers:
       - run
       - C:\\Users\\user\\Documents\\projects\\ai\\recipe_recall\\fastmcp_quickstart.py
       # - fastmcp_quickstart.py
-    # cwd: "${workspaceFolder}"
-    env: {}
+    cwd: "${workspaceFolder}"
+    timeoutMs: 90000
+    startup_timeout_ms: 20_000
+    env:
+      PATH: C:\\Windows

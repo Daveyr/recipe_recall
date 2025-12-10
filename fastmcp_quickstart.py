@@ -63,9 +63,11 @@ def search_recipes(keyword: str) -> str:
         # fallback to script in CWD
         script_path = script_name
 
-    max_retries = 2
-    timeout_seconds = 30
-    backoff = 1.0
+    # Increase the number of retries and timeout to accommodate slower network
+    # and avoid MCP agent timeouts. Adjust these if your environment needs more.
+    max_retries = 4
+    timeout_seconds = 60
+    backoff = 2.0
 
     for attempt in range(1, max_retries + 2):
         try:
