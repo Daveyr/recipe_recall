@@ -1,0 +1,35 @@
+name: New MCP server
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: FastMCP quickstart (local)
+    # Use this entry if you want Continue to start the server for you
+    # from the workspace root. Adjust `args` if the script location differs.
+    command: C:\\Users\\user\\.local\\bin\\uv.exe
+    args:
+      - run
+      - --with
+      - mcp[cli]
+      - mcp
+      - run
+      - C:\\Users\\user\\Documents\\projects\\ai\\mcp\\mcp-server-demo\\fastmcp_quickstart.py
+      # - fastmcp_quickstart.py
+    # cwd: "${workspaceFolder}"
+    env: {}
+  - name: Recipe recall (local)
+    # Use this entry if you want Continue to start the server for you
+    # from the workspace root. Adjust `args` if the script location differs.
+    command: C:\\Users\\user\\.local\\bin\\uv.exe
+    args:
+      - run
+      - --with
+      - mcp[cli]
+      - mcp
+      - run
+      - C:\\Users\\user\\Documents\\projects\\ai\\recipe_recall\\fastmcp_quickstart.py
+      # - fastmcp_quickstart.py
+    cwd: "${workspaceFolder}"
+    timeoutMs: 90000
+    startup_timeout_ms: 20_000
+    env:
+      PATH: C:\\Windows

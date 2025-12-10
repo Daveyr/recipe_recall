@@ -7,33 +7,38 @@ Run from the repository root:
 
 from mcp.server.fastmcp import FastMCP
 import os
+import subprocess
+import time
+import asyncio
+import sys
+from typing import Optional
 
 # Create an MCP server
-mcp = FastMCP("Demo", json_response=True)
+mcp = FastMCP("Recipe Recall", json_response=True)
 
 # AI Sticky notes
-NOTES_FILE = "notes.txt"
+RECIPE_FILE = "recipes.txt"
 def ensure_file():
-    if not os.path.exists(NOTES_FILE):
-        with open(NOTES_FILE, "w") as f:
+    if not os.path.exists(RECIPE_FILE):
+        with open(RECIPE_FILE, "w") as f:
             f.write("")
 
 @mcp.tool()
 
 def add_note(message: str) -> str:
     """
-    Saves a note to the specified notes file.
+    Saves a recipe to the specified recipe file.
     Args:
-    message (str): The content of the note to be saved.
+    message (str): The content of the recipe to be saved.
     Returns:
-    str: A confirmation message indicating the note was saved.
+    str: A confirmation message indicating the recipe was saved.
     Description:
-    This function appends the provided message to the notes file (NOTES_FILE),
-    ensuring the file exists before writing. The note is stored with a newline
+    This function appends the provided message to the recipes file (RECIPE_FILE),
+    ensuring the file exists before writing. The recipe is stored with a newline
     character at the end.
     """
     ensure_file()
-    with open(NOTES_FILE, "a") as f:
+    with open(RECIPE_FILE, "a") as f:
         f.write(message + "\n")
     return "Note saved."
 
@@ -43,25 +48,105 @@ def add(a: int, b: int) -> int:
     """Add two numbers"""
     return a + b
 
+@mcp.tool()
+async def search_recipes(keyword: str) -> str:
+    """Find the ingredients for a given meal search term
+        Args:
+            keyword (str): The name of a single recipe to search.
+        Returns:
+            str: The ingredients from the recipe.
+    """
+    # Use os to run bbcgoodfood_scraper_yolo.py with the keyword as argument
+    script_name = "bbcgoodfood_scraper_yolo.py"
+    script_path = os.path.join(os.path.dirname(__file__), script_name)
+    result = await subprocess.run(
+        ["python", script_name, keyword],
+        capture_output=True,
+        text=True,
+        timeout=6000
+    )
+    if result.returncode != 0:
+        return f"Error running scraper: {result.stderr}"
+    return {"output": result.stdout}
 
-# Add a dynamic greeting resource
-@mcp.resource("greeting://{name}")
-def get_greeting(name: str) -> str:
-    """Get a personalized greeting"""
-    return f"Hello, {name}!"
+# @mcp.tool()
+# async def search_recipes(keyword: str, timeout: int = 10) -> str:
+#     """Find the ingredients for a given meal search term
+#     Args:
+#         keyword (str): The name of a single recipe to search.
+#     Returns:
+#         str: The ingredients from the recipe.
+#     """
+#     # Attempt to run the local scraper script and return its stdout.
+#     # Use subprocess.run with a timeout, retries and clear error handling so
+#     # the MCP tool doesn't fail silently or return an integer exit code.
+#     script_name = "bbcgoodfood_scraper_yolo.py"
+#     script_path = os.path.join(os.path.dirname(__file__), script_name)
+#     if not os.path.exists(script_path):
+#         script_path = script_name
+
+#     max_retries = 4
+#     timeout_seconds = 60
+#     backoff = 2.0
+
+#     for attempt in range(1, max_retries + 1):
+#         try:
+#             # use the same Python executable and non-blocking subprocess
+#             proc = await asyncio.create_subprocess_exec(
+#                 sys.executable, script_path, keyword,
+#                 stdout=asyncio.subprocess.PIPE,
+#                 stderr=asyncio.subprocess.PIPE
+#             )
+#             try:
+#                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+#             except asyncio.TimeoutError:
+#                 proc.kill()
+#                 await proc.wait()
+#                 raise asyncio.TimeoutError()
+#             output = (stdout.decode("utf-8") or "").strip()
+#             ensure_file()
+#             # small sync write offloaded to a thread to avoid blocking
+#             await asyncio.to_thread(lambda: open(RECIPE_FILE, "a", encoding="utf-8").write(output + "\n"))
+#             return output or "(no output)"
+#         except asyncio.TimeoutError:
+#             if attempt >= max_retries:
+#                 return f"Error: scraper timed out after {timeout_seconds}s (attempt {attempt})"
+#             await asyncio.sleep(backoff)
+#             backoff *= 2
+#             continue
+#         except Exception as e:
+#             return f"Error running scraper: {e!s}"
+
+# @mcp.tool()
+# def recall_recipes(keyword: str) -> str:
+#     """Search for recipes containing the given keyword and return the ingredients"""
+#     ensure_file()
+#     results = []
+#     with open(RECIPE_FILE, "r") as f:
+#         for line in f:
+#             if keyword.lower() in line.lower():
+#                 results.append(line.strip())
+#     return "\n".join(results) if results else "No recipes found."
 
 
-# Add a prompt
-@mcp.prompt()
-def greet_user(name: str, style: str = "friendly") -> str:
-    """Generate a greeting prompt"""
-    styles = {
-        "friendly": "Please write a warm, friendly greeting",
-        "formal": "Please write a formal, professional greeting",
-        "casual": "Please write a casual, relaxed greeting",
-    }
+# # Add a dynamic greeting resource
+# @mcp.resource("greeting://{name}")
+# def get_greeting(name: str) -> str:
+#     """Get a personalized greeting"""
+#     return f"Hello, {name}!"
 
-    return f"{styles.get(style, styles['friendly'])} for someone named {name}."
+
+# # Add a prompt
+# @mcp.prompt()
+# def greet_user(name: str, style: str = "friendly") -> str:
+#     """Generate a greeting prompt"""
+#     styles = {
+#         "friendly": "Please write a warm, friendly greeting",
+#         "formal": "Please write a formal, professional greeting",
+#         "casual": "Please write a casual, relaxed greeting",
+#     }
+
+#     return f"{styles.get(style, styles['friendly'])} for someone named {name}."
 
 
 # Run with streamable HTTP transport
