@@ -60,7 +60,7 @@ async def search_recipes(keyword: str) -> str:
     script_name = "bbcgoodfood_scraper_yolo.py"
     script_path = os.path.join(os.path.dirname(__file__), script_name)
     result = await subprocess.run(
-        ["python", script_name, keyword],
+        [sys.executable, script_name, keyword],
         capture_output=True,
         text=True,
         timeout=6000
