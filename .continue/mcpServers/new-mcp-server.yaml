@@ -9,7 +9,7 @@ mcpServers:
     args:
       - run
       - --with
-      - mcp[cli], requests, bs4
+      - mcp[cli]
       - mcp
       - run
       - C:\\Users\\user\\Documents\\projects\\ai\\mcp\\mcp-server-demo\\fastmcp_quickstart.py
@@ -23,7 +23,7 @@ mcpServers:
     args:
       - run
       - --with
-      - mcp[cli]
+      - mcp[cli], requests, bs4
       - mcp
       - run
       - C:\\Users\\user\\Documents\\projects\\ai\\recipe_recall\\fastmcp_quickstart.py
