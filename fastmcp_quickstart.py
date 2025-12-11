@@ -59,15 +59,22 @@ async def search_recipes(keyword: str) -> str:
     # Use os to run bbcgoodfood_scraper_yolo.py with the keyword as argument
     script_name = "bbcgoodfood_scraper_yolo.py"
     script_path = os.path.join(os.path.dirname(__file__), script_name)
-    result = await subprocess.run(
-        ["python", script_name, keyword],
-        capture_output=True,
-        text=True,
-        timeout=6000
-    )
+    if not os.path.exists(script_path):
+        script_path = script_name
+    cmd = [sys.executable, script_path, keyword]
+    result = await asyncio.to_thread(
+            subprocess.run,
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=120,
+        )
+     
     if result.returncode != 0:
         return f"Error running scraper: {result.stderr}"
-    return {"output": result.stdout}
+    return f"output:{result.stdout}" 
 
 # @mcp.tool()
 # async def search_recipes(keyword: str, timeout: int = 10) -> str:
