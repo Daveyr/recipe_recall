@@ -26,44 +26,49 @@ Create a web scraper to extract ingredients from BBC Good Food recipes using the
 ## ISSUES ENCOUNTERED & SOLUTIONS
 
 Issue 1: Transport-level timeouts (-32001 Request timed out)
-  Problem: HTTP-based transport layer had short default timeouts
-  Solution: Switched from streamable-http to stdio (direct stdin/stdout)
-  Result: ✅ Eliminated transport overhead
+  * Problem: HTTP-based transport layer had short default timeouts
+  * Solution: Switched from streamable-http to stdio (direct stdin/stdout)
+  * Result: ✅ Eliminated transport overhead
   
 Note, this wan't the real issue (see other issues below, including the CRITICAL one). HTTP transport likely to be just fine.
 
 Issue 2: ModuleNotFoundError (requests, beautifulsoup4)
-  Problem: Subprocess environment lacked project dependencies
-  Solution: Wrapped scraper invocation with `uv run --with requests,bs4`
-  Result: ✅ Dependencies available to subprocess
+  * Problem: Subprocess environment lacked project dependencies
+  * Solution: Wrapped scraper invocation with `uv run --with requests,bs4`
+  * Result: ✅ Dependencies available to subprocess
 
 Issue 3: YAML syntax error in MCP configuration
-  Problem: Invalid YAML mapping syntax in environment variables
-  Solution: Converted `env: {C:\Windows}` to proper YAML `env: PATH: "C:\\Windows"`
-  Result: ✅ Config file valid and loads correctly
+  * Problem: Invalid YAML mapping syntax in environment variables
+  * Solution: Converted `env: {C:\Windows}` to proper YAML `env: PATH: "C:\\Windows"`
+  * Result: ✅ Config file valid and loads correctly
 
 Issue 4: Subprocess command timeout
-  Problem: Increased subprocess timeout from 30s → 120s, MCP timeout 90s → 180s
-  Solution: Acknowledged uv overhead and set reasonable limits
-  Result: ✅ Timeout buffer in place
+  * Problem: Increased subprocess timeout from 30s → 120s, MCP timeout 90s → 180s
+  * Solution: Acknowledged uv overhead and set reasonable limits
+  * Result: ✅ Timeout buffer in place
 
 Issue 5: Subprocess hanging indefinitely (CRITICAL)
-  Problem: subprocess.run() call never returned; logs stopped at subprocess entry
-  Diagnosis: uv run was waiting for stdin input in non-TTY subprocess context
-  Attempted Fix 1: Added --no-progress flag to suppress interactive output
-    Result: ❌ Did not resolve hang
-  Attempted Fix 2: Added excessive logging before/after subprocess call
-    Result: ❌ Did not fix; logs confirmed subprocess never returned
-  Final Solution: Added stdin=subprocess.DEVNULL to explicitly close stdin
-    Result: ✅ RESOLVED - subprocess now completes successfully
+  * Problem: subprocess.run() call never returned; logs stopped at subprocess entry
+  * Diagnosis: uv run was waiting for stdin input in non-TTY subprocess context
+  * Attempted Fix 1: Added --no-progress flag to suppress interactive output
+    * Result: ❌ Did not resolve hang
+  * Attempted Fix 2: Added excessive logging before/after subprocess call
+    * Result: ❌ Did not fix; logs confirmed subprocess never returned
+  * Final Solution: Added stdin=subprocess.DEVNULL to explicitly close stdin
+    * Result: ✅ RESOLVED - subprocess now completes successfully
 
 ## FINAL STATUS
 
 ✅ Web scraper fully functional and tested locally
+
 ✅ MCP server running without errors
+
 ✅ search_recipes tool now executes and returns results
+
 ✅ All tools accessible from Continue IDE via MCP interface
+
 ✅ Logging infrastructure working and writing to recipe_recall.log
+
 
 ## TECHNICAL STACK
 
