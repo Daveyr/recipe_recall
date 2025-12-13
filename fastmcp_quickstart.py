@@ -56,8 +56,8 @@ async def search_recipes(keyword: str) -> str:
         Returns:
             str: The ingredients from the recipe.
     """
-    # Use os to run bbcgoodfood_scraper_yolo.py with the keyword as argument
-    script_name = "bbcgoodfood_scraper_yolo.py"
+    # Use os to run bbcgoodfood_scraper.py with the keyword as argument
+    script_name = "bbcgoodfood_scraper.py"
     script_path = os.path.join(os.path.dirname(__file__), script_name)
     if not os.path.exists(script_path):
         script_path = script_name
@@ -87,7 +87,7 @@ async def search_recipes(keyword: str) -> str:
 #     # Attempt to run the local scraper script and return its stdout.
 #     # Use subprocess.run with a timeout, retries and clear error handling so
 #     # the MCP tool doesn't fail silently or return an integer exit code.
-#     script_name = "bbcgoodfood_scraper_yolo.py"
+#     script_name = "bbcgoodfood_scraper.py"
 #     script_path = os.path.join(os.path.dirname(__file__), script_name)
 #     if not os.path.exists(script_path):
 #         script_path = script_name
